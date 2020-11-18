@@ -25,6 +25,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 
 
+LOGREG_PARAMS = ("penalty", "dual", "solver", "max_iter", "l1_ratio")
+
+
 def get_classif_name(classifier_config, usepytorch):
     if not usepytorch:
         modelname = 'sklearn-LogReg'
@@ -51,6 +54,7 @@ class InnerKFoldClassifier(object):
         self.usepytorch = config['usepytorch']
         self.classifier_config = config['classifier']
         self.modelname = get_classif_name(self.classifier_config, self.usepytorch)
+        self.logreg_params = {k: v for k, v in config['classifier'].items() if k in LOGREG_PARAMS}
 
         self.k = 5 if 'kfold' not in config else config['kfold']
 
@@ -81,7 +85,7 @@ class InnerKFoldClassifier(object):
                         clf.fit(X_in_train, y_in_train,
                                 validation_data=(X_in_test, y_in_test))
                     else:
-                        clf = LogisticRegression(C=reg, random_state=self.seed)
+                        clf = LogisticRegression(C=reg, random_state=self.seed, **self.logreg_params)
                         clf.fit(X_in_train, y_in_train)
                     regscores.append(clf.score(X_in_test, y_in_test))
                 scores.append(round(100*np.mean(regscores), 2))
@@ -97,7 +101,7 @@ class InnerKFoldClassifier(object):
 
                 clf.fit(X_train, y_train, validation_split=0.05)
             else:
-                clf = LogisticRegression(C=optreg, random_state=self.seed)
+                clf = LogisticRegression(C=optreg, random_state=self.seed, **self.logreg_params)
                 clf.fit(X_train, y_train)
 
             self.testresults.append(round(100*clf.score(X_test, y_test), 2))
@@ -120,6 +124,7 @@ class KFoldClassifier(object):
         self.usepytorch = config['usepytorch']
         self.classifier_config = config['classifier']
         self.modelname = get_classif_name(self.classifier_config, self.usepytorch)
+        self.logreg_params = {k: v for k, v in config['classifier'].items() if k in LOGREG_PARAMS}
 
         self.k = 5 if 'kfold' not in config else config['kfold']
 
@@ -149,7 +154,7 @@ class KFoldClassifier(object):
                               seed=self.seed)
                     clf.fit(X_train, y_train, validation_data=(X_test, y_test))
                 else:
-                    clf = LogisticRegression(C=reg, random_state=self.seed)
+                    clf = LogisticRegression(C=reg, random_state=self.seed, **self.logreg_params)
                     clf.fit(X_train, y_train)
                 score = clf.score(X_test, y_test)
                 scanscores.append(score)
@@ -171,7 +176,7 @@ class KFoldClassifier(object):
                       seed=self.seed)
             clf.fit(self.train['X'], self.train['y'], validation_split=0.05)
         else:
-            clf = LogisticRegression(C=optreg, random_state=self.seed)
+            clf = LogisticRegression(C=optreg, random_state=self.seed, **self.logreg_params)
             clf.fit(self.train['X'], self.train['y'])
         yhat = clf.predict(self.test['X'])
 
@@ -198,6 +203,8 @@ class SplitClassifier(object):
         self.modelname = get_classif_name(self.classifier_config, self.usepytorch)
         self.noreg = False if 'noreg' not in config else config['noreg']
         self.config = config
+        self.logreg_params = {k: v for k, v in config['classifier'].items() if k in LOGREG_PARAMS}
+
 
     def run(self):
         logging.info('Training {0} with standard validation..'
@@ -217,7 +224,7 @@ class SplitClassifier(object):
                 clf.fit(self.X['train'], self.y['train'],
                         validation_data=(self.X['valid'], self.y['valid']))
             else:
-                clf = LogisticRegression(C=reg, random_state=self.seed)
+                clf = LogisticRegression(C=reg, random_state=self.seed, **self.logreg_params)
                 clf.fit(self.X['train'], self.y['train'])
             scores.append(round(100*clf.score(self.X['valid'],
                                 self.y['valid']), 2))
@@ -227,7 +234,7 @@ class SplitClassifier(object):
         devaccuracy = np.max(scores)
         logging.info('Validation : best param found is reg = {0} with score \
             {1}'.format(optreg, devaccuracy))
-        clf = LogisticRegression(C=optreg, random_state=self.seed)
+        clf = LogisticRegression(C=optreg, random_state=self.seed, **self.logreg_params)
         logging.info('Evaluating...')
         if self.usepytorch:
             clf = MLP(self.classifier_config, inputdim=self.featdim,
@@ -238,7 +245,7 @@ class SplitClassifier(object):
             clf.fit(self.X['train'], self.y['train'],
                     validation_data=(self.X['valid'], self.y['valid']))
         else:
-            clf = LogisticRegression(C=optreg, random_state=self.seed)
+            clf = LogisticRegression(C=optreg, random_state=self.seed, **self.logreg_params)
             clf.fit(self.X['train'], self.y['train'])
 
         testaccuracy = clf.score(self.X['test'], self.y['test'])
